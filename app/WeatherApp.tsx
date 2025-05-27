@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/Feather";
 
-const API_KEY = "fe79f0f81d67d56dab3bea062f410530";
+const API_KEY = "fff";
 
 export default function WeatherApp() {
     const [location, setLocation] = useState("Dhaka");
