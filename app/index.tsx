@@ -1,35 +1,97 @@
-import { StatusBar } from "expo-status-bar";
-import { Image, ScrollView, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import {
+    Image,
+    Modal,
+    ScrollView,
+    StatusBar,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import Icon from "react-native-vector-icons/Feather";
+
+const API_KEY = "API_KEY_HERE";
 
 export default function WeatherApp() {
-    // Sample weather data
-    const currentWeather = {
-        temp: 28,
-        condition: "Sunny",
-        high: 32,
-        low: 24,
-        location: "Dhaka, BD",
-        humidity: 65,
-        wind: 8,
-        feelsLike: 30,
-        icon: "https://cdn-icons-png.flaticon.com/512/2698/2698194.png",
+    const [location, setLocation] = useState("Dhaka");
+    const [inputLocation, setInputLocation] = useState("");
+    const [weather, setWeather] = useState(null);
+    const [modalVisible, setModalVisible] = useState(false);
+
+    useEffect(() => {
+        fetchWeather(location);
+    }, [location]);
+
+    const fetchWeather = async (city) => {
+        try {
+            const response = await fetch(
+                `https://api.openweathermap.org/data/2.5/forecast?q=${city}&units=metric&appid=${API_KEY}`
+            );
+            const data = await response.json();
+            if (data.cod !== "200") throw new Error("Invalid Location");
+            const current = data.list[0];
+            const forecast = data.list.slice(0, 5).map((item) => ({
+                time: new Date(item.dt * 1000).getHours() + ":00",
+                temp: Math.round(item.main.temp),
+                icon: `https://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png`,
+            }));
+
+            const dailyMap = {};
+            data.list.forEach((item) => {
+                const day = new Date(item.dt_txt).toDateString();
+                if (!dailyMap[day]) {
+                    dailyMap[day] = {
+                        high: item.main.temp_max,
+                        low: item.main.temp_min,
+                        icon: item.weather[0].icon,
+                    };
+                } else {
+                    dailyMap[day].high = Math.max(
+                        dailyMap[day].high,
+                        item.main.temp_max
+                    );
+                    dailyMap[day].low = Math.min(
+                        dailyMap[day].low,
+                        item.main.temp_min
+                    );
+                }
+            });
+
+            const days = Object.keys(dailyMap)
+                .slice(0, 5)
+                .map((day, i) => ({
+                    day: i === 0 ? "Today" : day.split(" ")[0],
+                    high: Math.round(dailyMap[day].high),
+                    low: Math.round(dailyMap[day].low),
+                    icon: dailyMap[day].icon,
+                }));
+
+            setWeather({
+                temp: Math.round(current.main.temp),
+                condition: current.weather[0].main,
+                high: Math.round(current.main.temp_max),
+                low: Math.round(current.main.temp_min),
+                feelsLike: Math.round(current.main.feels_like),
+                humidity: current.main.humidity,
+                wind: current.wind.speed,
+                icon: `https://openweathermap.org/img/wn/${current.weather[0].icon}@2x.png`,
+                forecast,
+                days,
+            });
+        } catch (err) {
+            console.error(err.message);
+            setWeather(null);
+        }
     };
 
-    const hourlyForecast = [
-        { time: "Now", temp: 28, icon: "☀️" },
-        { time: "1PM", temp: 30, icon: "☀️" },
-        { time: "2PM", temp: 31, icon: "⛅" },
-        { time: "3PM", temp: 31, icon: "⛅" },
-        { time: "4PM", temp: 30, icon: "⛅" },
-    ];
-
-    const weeklyForecast = [
-        { day: "Today", high: 32, low: 24, icon: "☀️" },
-        { day: "Tue", high: 31, low: 25, icon: "⛅" },
-        { day: "Wed", high: 30, low: 25, icon: "🌧️" },
-        { day: "Thu", high: 29, low: 24, icon: "⛅" },
-        { day: "Fri", high: 31, low: 25, icon: "☀️" },
-    ];
+    if (!weather) {
+        return (
+            <View className="flex-1 items-center justify-center bg-gray-100">
+                <Text className="text-gray-500">Loading Weather...</Text>
+            </View>
+        );
+    }
 
     return (
         <ScrollView className="flex-1 bg-gray-100">
@@ -39,48 +101,53 @@ export default function WeatherApp() {
             <View className="bg-[#ed3e0d] p-6 pb-12 rounded-b-3xl">
                 <View className="flex-row justify-between items-center mb-8">
                     <Text className="text-white text-xl font-bold">
-                        {currentWeather.location}
+                        {location}
                     </Text>
-                    <View className="bg-white/20 p-2 rounded-full">
-                        <Text className="text-white">⚙️</Text>
-                    </View>
+                    <TouchableOpacity
+                        className="bg-white/20 p-2 rounded-full"
+                        onPress={() => setModalVisible(true)}
+                    >
+                        <Text className="text-white">
+                            <Icon name="map-pin" size={20} color="#fff" />
+                        </Text>
+                    </TouchableOpacity>
                 </View>
 
                 {/* Current Weather */}
                 <View className="flex-row justify-between items-center mb-2">
                     <View>
                         <Text className="text-white text-5xl font-bold">
-                            {currentWeather.temp}°
+                            {weather.temp}°
                         </Text>
                         <Text className="text-white text-xl">
-                            {currentWeather.condition}
+                            {weather.condition}
                         </Text>
                         <Text className="text-white/90">
-                            H: {currentWeather.high}° L: {currentWeather.low}°
+                            H: {weather.high}° L: {weather.low}°
                         </Text>
                     </View>
                     <Image
-                        source={{ uri: currentWeather.icon }}
+                        source={{ uri: weather.icon }}
                         className="w-32 h-32"
                     />
                 </View>
                 <Text className="text-white/90">
-                    Feels like {currentWeather.feelsLike}°
+                    Feels like {weather.feelsLike}°
                 </Text>
             </View>
 
-            {/* Stats Cards */}
+            {/* Stats */}
             <View className="flex-row flex-wrap justify-between px-6 -mt-8 mb-6">
                 <View className="bg-white w-[48%] p-4 rounded-2xl shadow-sm mb-4">
                     <Text className="text-gray-500">Humidity</Text>
                     <Text className="text-[#ed3e0d] text-2xl font-bold">
-                        {currentWeather.humidity}%
+                        {weather.humidity}%
                     </Text>
                 </View>
                 <View className="bg-white w-[48%] p-4 rounded-2xl shadow-sm mb-4">
                     <Text className="text-gray-500">Wind</Text>
                     <Text className="text-[#ed3e0d] text-2xl font-bold">
-                        {currentWeather.wind} km/h
+                        {weather.wind} km/h
                     </Text>
                 </View>
                 <View className="bg-white w-[48%] p-4 rounded-2xl shadow-sm">
@@ -102,7 +169,7 @@ export default function WeatherApp() {
                 </Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <View className="flex-row space-x-4">
-                        {hourlyForecast.map((hour, index) => (
+                        {weather.forecast.map((hour, index) => (
                             <View
                                 key={index}
                                 className="bg-white p-3 rounded-xl items-center min-w-[70px]"
@@ -110,9 +177,10 @@ export default function WeatherApp() {
                                 <Text className="text-gray-600">
                                     {hour.time}
                                 </Text>
-                                <Text className="text-2xl mb-1">
-                                    {hour.icon}
-                                </Text>
+                                <Image
+                                    source={{ uri: hour.icon }}
+                                    className="w-10 h-10"
+                                />
                                 <Text className="text-[#ed3e0d] font-bold">
                                     {hour.temp}°
                                 </Text>
@@ -128,7 +196,7 @@ export default function WeatherApp() {
                     5-Day Forecast
                 </Text>
                 <View className="bg-white rounded-2xl p-4 shadow-sm">
-                    {weeklyForecast.map((day, index) => (
+                    {weather.days.map((day, index) => (
                         <View
                             key={index}
                             className="flex-row justify-between items-center py-3 border-b border-gray-100 last:border-0"
@@ -142,7 +210,12 @@ export default function WeatherApp() {
                             >
                                 {day.day}
                             </Text>
-                            <Text className="text-xl">{day.icon}</Text>
+                            <Image
+                                source={{
+                                    uri: `https://openweathermap.org/img/wn/${day.icon}@2x.png`,
+                                }}
+                                className="w-8 h-8"
+                            />
                             <View className="flex-row items-center space-x-4">
                                 <Text className="text-gray-400">
                                     {day.low}°
@@ -166,26 +239,45 @@ export default function WeatherApp() {
                 </View>
             </View>
 
-            {/* Additional Info */}
-            <View className="px-6 mb-8">
-                <Text className="text-gray-700 text-lg font-semibold mb-3">
-                    Weather Details
-                </Text>
-                <View className="bg-white rounded-2xl p-4 shadow-sm">
-                    <View className="flex-row justify-between py-3 border-b border-gray-100">
-                        <Text className="text-gray-600">Sunrise</Text>
-                        <Text className="font-semibold">5:45 AM</Text>
-                    </View>
-                    <View className="flex-row justify-between py-3 border-b border-gray-100">
-                        <Text className="text-gray-600">Sunset</Text>
-                        <Text className="font-semibold">6:30 PM</Text>
-                    </View>
-                    <View className="flex-row justify-between py-3">
-                        <Text className="text-gray-600">Visibility</Text>
-                        <Text className="font-semibold">10 km</Text>
+            {/* Modal for Location Input */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={modalVisible}
+                onRequestClose={() => setModalVisible(false)}
+            >
+                <View className="flex-1 justify-center items-center bg-black/40">
+                    <View className="bg-white w-[90%] p-5 rounded-xl">
+                        <Text className="text-lg font-semibold mb-3">
+                            Enter a city
+                        </Text>
+                        <TextInput
+                            value={inputLocation}
+                            onChangeText={setInputLocation}
+                            placeholder="e.g., Dhaka"
+                            className="border border-gray-300 rounded p-2 mb-4"
+                        />
+                        <View className="flex-row justify-end space-x-2">
+                            <TouchableOpacity
+                                onPress={() => setModalVisible(false)}
+                                className="px-4 py-2 bg-gray-200 rounded"
+                            >
+                                <Text>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    setLocation(inputLocation);
+                                    setModalVisible(false);
+                                    setInputLocation("");
+                                }}
+                                className="px-4 py-2 bg-[#ed3e0d] rounded"
+                            >
+                                <Text className="text-white">Apply</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
-            </View>
+            </Modal>
         </ScrollView>
     );
 }
