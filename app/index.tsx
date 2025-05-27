@@ -12,35 +12,92 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/Feather";
 
-const API_KEY = Constants.expoConfig?.extra?.WEATHER_API_KEY;
+interface WeatherData {
+    temp: number;
+    condition: string;
+    high: number;
+    low: number;
+    feelsLike: number;
+    humidity: number;
+    wind: number;
+    icon: string;
+    forecast: ForecastItem[];
+    days: DayForecast[];
+}
+
+interface ForecastItem {
+    time: string;
+    temp: number;
+    icon: string;
+}
+
+interface DayForecast {
+    day: string;
+    high: number;
+    low: number;
+    icon: string;
+}
+
+interface ApiResponse {
+    cod: string;
+    list: {
+        dt: number;
+        dt_txt: string;
+        main: {
+            temp: number;
+            temp_max: number;
+            temp_min: number;
+            feels_like: number;
+            humidity: number;
+        };
+        weather: {
+            main: string;
+            icon: string;
+        }[];
+        wind: {
+            speed: number;
+        };
+    }[];
+    city: {
+        country: string;
+    };
+}
+
+const API_KEY: string = Constants.expoConfig?.extra?.WEATHER_API_KEY;
 
 export default function WeatherApp() {
-    const [location, setLocation] = useState("Dhaka");
-    const [inputLocation, setInputLocation] = useState("");
-    const [weather, setWeather] = useState(null);
-    const [modalVisible, setModalVisible] = useState(false);
-    const [country, setCountry] = useState("BD");
+    const [location, setLocation] = useState<string>("Dhaka");
+    const [inputLocation, setInputLocation] = useState<string>("");
+    const [weather, setWeather] = useState<WeatherData | null>(null);
+    const [modalVisible, setModalVisible] = useState<boolean>(false);
+    const [country, setCountry] = useState<string>("BD");
 
     useEffect(() => {
         fetchWeather(location);
     }, [location]);
 
-    const fetchWeather = async (city) => {
+    const fetchWeather = async (city: string) => {
         try {
             const response = await fetch(
                 `https://api.openweathermap.org/data/2.5/forecast?q=${city}&units=metric&appid=${API_KEY}`
             );
-            const data = await response.json();
+            const data: ApiResponse = await response.json();
             if (data.cod !== "200") throw new Error("Invalid Location");
             const current = data.list[0];
-            setCountry(data?.city?.country);
-            const forecast = data.list.slice(0, 5).map((item) => ({
-                time: new Date(item.dt * 1000).getHours() + ":00",
-                temp: Math.round(item.main.temp),
-                icon: `https://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png`,
-            }));
+            setCountry(data?.city?.country || "BD");
 
-            const dailyMap = {};
+            const forecast: ForecastItem[] = data.list
+                .slice(0, 5)
+                .map((item) => ({
+                    time: new Date(item.dt * 1000).getHours() + ":00",
+                    temp: Math.round(item.main.temp),
+                    icon: `https://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png`,
+                }));
+
+            const dailyMap: Record<
+                string,
+                { high: number; low: number; icon: string }
+            > = {};
             data.list.forEach((item) => {
                 const day = new Date(item.dt_txt).toDateString();
                 if (!dailyMap[day]) {
@@ -61,10 +118,15 @@ export default function WeatherApp() {
                 }
             });
 
-            const days = Object.keys(dailyMap)
+            const days: DayForecast[] = Object.keys(dailyMap)
                 .slice(0, 5)
                 .map((day, i) => ({
-                    day: i === 0 ? "Today" : day.split(" ")[0],
+                    day:
+                        i === 0
+                            ? "Today"
+                            : new Date(day).toLocaleDateString("en-US", {
+                                  weekday: "short",
+                              }),
                     high: Math.round(dailyMap[day].high),
                     low: Math.round(dailyMap[day].low),
                     icon: dailyMap[day].icon,
@@ -83,7 +145,7 @@ export default function WeatherApp() {
                 days,
             });
         } catch (err) {
-            console.error(err.message);
+            console.error(err instanceof Error ? err.message : "Unknown error");
             setWeather(null);
         }
     };
@@ -98,7 +160,7 @@ export default function WeatherApp() {
 
     return (
         <ScrollView className="flex-1 bg-gray-100">
-            <StatusBar style="dark" />
+            <StatusBar barStyle="dark-content" />
 
             {/* Header */}
             <View className="bg-[#ed3e0d] p-6 pb-12 rounded-b-3xl">
@@ -110,9 +172,7 @@ export default function WeatherApp() {
                         className="bg-white/20 p-2 rounded-full"
                         onPress={() => setModalVisible(true)}
                     >
-                        <Text className="text-white">
-                            <Icon name="map-pin" size={20} color="#fff" />
-                        </Text>
+                        <Icon name="map-pin" size={20} color="#fff" />
                     </TouchableOpacity>
                 </View>
 
