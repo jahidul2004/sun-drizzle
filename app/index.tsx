@@ -7,6 +7,7 @@ import {
     StatusBar,
     Text,
     TextInput,
+    ToastAndroid,
     TouchableOpacity,
     View,
 } from "react-native";
@@ -40,7 +41,8 @@ interface DayForecast {
 
 interface ApiResponse {
     cod: string;
-    list: {
+    message?: string;
+    list?: {
         dt: number;
         dt_txt: string;
         main: {
@@ -58,7 +60,7 @@ interface ApiResponse {
             speed: number;
         };
     }[];
-    city: {
+    city?: {
         country: string;
     };
 }
@@ -71,20 +73,30 @@ export default function WeatherApp() {
     const [weather, setWeather] = useState<WeatherData | null>(null);
     const [modalVisible, setModalVisible] = useState<boolean>(false);
     const [country, setCountry] = useState<string>("BD");
+    const [loading, setLoading] = useState<boolean>(true);
 
     useEffect(() => {
         fetchWeather(location);
     }, [location]);
 
     const fetchWeather = async (city: string) => {
+        setLoading(true);
         try {
             const response = await fetch(
                 `https://api.openweathermap.org/data/2.5/forecast?q=${city}&units=metric&appid=${API_KEY}`
             );
             const data: ApiResponse = await response.json();
-            if (data.cod !== "200") throw new Error("Invalid Location");
+
+            if (data.cod !== "200") {
+                throw new Error(data.message || "Invalid Location");
+            }
+
+            if (!data.list || !data.city) {
+                throw new Error("Invalid weather data");
+            }
+
             const current = data.list[0];
-            setCountry(data?.city?.country || "BD");
+            setCountry(data.city.country || "BD");
 
             const forecast: ForecastItem[] = data.list
                 .slice(0, 5)
@@ -145,15 +157,37 @@ export default function WeatherApp() {
                 days,
             });
         } catch (err) {
-            console.error(err instanceof Error ? err.message : "Unknown error");
-            setWeather(null);
+            const errorMessage =
+                err instanceof Error ? err.message : "Unknown error";
+            console.error(errorMessage);
+            ToastAndroid.show(
+                `Location not found: ${errorMessage}`,
+                ToastAndroid.SHORT
+            );
+            // Don't set weather to null, keep the previous data
+        } finally {
+            setLoading(false);
         }
     };
+
+    if (loading && !weather) {
+        return (
+            <View className="flex-1 items-center justify-center bg-gray-100">
+                <Text className="text-gray-500">Loading Weather...</Text>
+            </View>
+        );
+    }
 
     if (!weather) {
         return (
             <View className="flex-1 items-center justify-center bg-gray-100">
-                <Text className="text-gray-500">Loading Weather...</Text>
+                <Text className="text-gray-500">No weather data available</Text>
+                <TouchableOpacity
+                    className="mt-4 bg-[#ed3e0d] px-4 py-2 rounded"
+                    onPress={() => fetchWeather(location)}
+                >
+                    <Text className="text-white">Retry</Text>
+                </TouchableOpacity>
             </View>
         );
     }
@@ -329,9 +363,16 @@ export default function WeatherApp() {
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={() => {
-                                    setLocation(inputLocation);
-                                    setModalVisible(false);
-                                    setInputLocation("");
+                                    if (inputLocation.trim()) {
+                                        setLocation(inputLocation);
+                                        setModalVisible(false);
+                                        setInputLocation("");
+                                    } else {
+                                        ToastAndroid.show(
+                                            "Please enter a location",
+                                            ToastAndroid.SHORT
+                                        );
+                                    }
                                 }}
                                 className="px-4 py-2 bg-[#ed3e0d] rounded"
                             >
