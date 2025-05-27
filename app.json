@@ -13,7 +13,7 @@
         },
         "android": {
             "adaptiveIcon": {
-                "foregroundImage": "./assets/images/splash.png",
+                "foregroundImage": "./assets/images/app-icon.png",
                 "backgroundColor": "#ffffff"
             },
             "edgeToEdgeEnabled": true
@@ -21,14 +21,14 @@
         "web": {
             "bundler": "metro",
             "output": "static",
-            "favicon": "./assets/images/favicon.png"
+            "favicon": "./assets/images/splash.png"
         },
         "plugins": [
             "expo-router",
             [
                 "expo-splash-screen",
                 {
-                    "image": "./assets/images/splash.png",
+                    "image": "./assets/images/app-icon.png",
                     "imageWidth": 200,
                     "resizeMode": "contain",
                     "backgroundColor": "#ffffff"
