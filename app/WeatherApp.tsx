@@ -1,5 +1,5 @@
-import Constants from "expo-constants";
 import { useEffect, useState } from "react";
+import "../global.css";
 import {
     Image,
     Modal,
@@ -12,14 +12,13 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/Feather";
 
-const API_KEY = Constants.expoConfig?.extra?.WEATHER_API_KEY;
+const API_KEY = "fe79f0f81d67d56dab3bea062f410530";
 
 export default function WeatherApp() {
     const [location, setLocation] = useState("Dhaka");
     const [inputLocation, setInputLocation] = useState("");
     const [weather, setWeather] = useState(null);
     const [modalVisible, setModalVisible] = useState(false);
-    const [country, setCountry] = useState("BD");
 
     useEffect(() => {
         fetchWeather(location);
@@ -33,7 +32,6 @@ export default function WeatherApp() {
             const data = await response.json();
             if (data.cod !== "200") throw new Error("Invalid Location");
             const current = data.list[0];
-            setCountry(data?.city?.country);
             const forecast = data.list.slice(0, 5).map((item) => ({
                 time: new Date(item.dt * 1000).getHours() + ":00",
                 temp: Math.round(item.main.temp),
@@ -99,12 +97,11 @@ export default function WeatherApp() {
     return (
         <ScrollView className="flex-1 bg-gray-100">
             <StatusBar style="dark" />
-
             {/* Header */}
             <View className="bg-[#ed3e0d] p-6 pb-12 rounded-b-3xl">
                 <View className="flex-row justify-between items-center mb-8">
                     <Text className="text-white text-xl font-bold">
-                        {location}, {country}
+                        {location}
                     </Text>
                     <TouchableOpacity
                         className="bg-white/20 p-2 rounded-full"
